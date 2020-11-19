@@ -3,8 +3,8 @@ import svg2gerber.svg as svg
 from svg2gerber.earcut import earcut
 from svg2gerber.gerber import GerberWriter
 
-writer = GerberWriter('test.gko')
-writer.write_comment('just a test gerber file')
+writer = GerberWriter("test.gko")
+writer.write_comment("just a test gerber file")
 writer.write_header()
 writer.add_circle_aperture(11, 0.25)
 writer.select_aperture(11)
@@ -24,14 +24,13 @@ writer.interpolate_to(20, 20)
 
 
 class Converter:
-    
     def __init__(self, filename):
         self.svg = svg.Svg(filename)
         self.gerber = None
         self.svg_precision = 0.05
 
-        self.convert_edgecuts('Edgecuts', 'frontpanel-Edge_Cuts.gm1')
-        self.convert_silkscreen('Silkscreen', 'frontpanel-F_SilkS.gto')
+        self.convert_edgecuts("Edgecuts", "frontpanel-Edge_Cuts.gm1")
+        self.convert_silkscreen("Silkscreen", "frontpanel-F_SilkS.gto")
 
     def convert_edgecuts(self, id, filename):
         self.start_gerber(filename)
@@ -74,15 +73,15 @@ class Converter:
         #     self.gerber.end_region()
 
     def write_polygon(self, segments):
-        print('write polygon')
+        print("write polygon")
         self.gerber.begin_region()
 
         # print(segments)
         points = [[(float(p.x), float(p.y)) for p in segment] for segment in segments]
         data = earcut.flatten(points)
         # print(data)
-        indices = earcut.earcut(data['vertices'], data['holes'], data['dimensions'])
-        vertices = data['vertices']
+        indices = earcut.earcut(data["vertices"], data["holes"], data["dimensions"])
+        vertices = data["vertices"]
         # print(indices)
 
         for i in range(len(indices) // 3):
@@ -100,7 +99,6 @@ class Converter:
             # print(p0, p1, p2)
 
         self.gerber.end_region()
-
 
     def start_gerber(self, filename):
         self.gerber = GerberWriter(filename)
@@ -120,17 +118,21 @@ class Converter:
         return find(self.svg.items, id)
 
     def elements_equal(self, e1, e2):
-        if e1.tag != e2.tag: return False
-        if e1.text != e2.text: return False
-        if e1.attrib != e2.attrib: return False
-        if len(e1) != len(e2): return False
+        if e1.tag != e2.tag:
+            return False
+        if e1.text != e2.text:
+            return False
+        if e1.attrib != e2.attrib:
+            return False
+        if len(e1) != len(e2):
+            return False
         return all(elements_equal(c1, c2) for c1, c2 in zip(e1, e2))
 
     def remove_duplicate_elements(self, items):
         result = []
         for item in items:
             if any(self.elements_equal(item.elt, i.elt) for i in result):
-                print('skipping duplicate element')
+                print("skipping duplicate element")
                 continue
             result.append(item)
         return result
@@ -140,7 +142,7 @@ class Converter:
         last = None
         for p in points:
             if p == last:
-                print('skipping duplicate point')
+                print("skipping duplicate point")
                 continue
             result.append(p)
             last = p
@@ -157,7 +159,8 @@ class Converter:
         return sum > 0
 
 
-converter = Converter('test.svg')
+converter = Converter("test.svg")
+
 
 def main():
     print("hello")

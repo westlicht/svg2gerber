@@ -14,11 +14,11 @@ setuptools.setup(
     url="https://github.com/westlicht/svg2gerber",
     packages=setuptools.find_packages(),
     entry_points={
-        'console_scripts': ['svg2gerber=svg2gerber.svg2gerber:main'],
+        "console_scripts": ["svg2gerber=svg2gerber.svg2gerber:main"],
     },
-    package_dir={'svg2gerber': 'svg2gerber'},
-    license='GPLv2',
-    keywords=['svg2gerber', 'svg', 'gerber', 'pcb'],
+    package_dir={"svg2gerber": "svg2gerber"},
+    license="GPLv2",
+    keywords=["svg2gerber", "svg", "gerber", "pcb"],
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Science/Research",
@@ -26,5 +26,5 @@ setuptools.setup(
         "License :: OSI Approved :: GPLv2 License",
         "Operating System :: OS Independent",
     ],
-    python_requires='>=3.6',
+    python_requires=">=3.6",
 )

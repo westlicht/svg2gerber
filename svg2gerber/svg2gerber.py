@@ -1,44 +1,101 @@
+import os
 import math
+import argparse
 import svg2gerber.svg as svg
 from svg2gerber.earcut import earcut
 from svg2gerber.gerber import GerberWriter
 
-writer = GerberWriter("test.gko")
-writer.write_comment("just a test gerber file")
-writer.write_header()
-writer.add_circle_aperture(11, 0.25)
-writer.select_aperture(11)
-writer.move_to(0, 0)
-writer.interpolate_to(100, 0)
-writer.interpolate_to(100, 100)
-writer.interpolate_to(0, 100)
-writer.interpolate_to(0, 0)
+# writer = GerberWriter("test.gko")
+# writer.write_comment("just a test gerber file")
+# writer.write_header()
+# writer.add_circle_aperture(11, 0.25)
+# writer.select_aperture(11)
+# writer.move_to(0, 0)
+# writer.interpolate_to(100, 0)
+# writer.interpolate_to(100, 100)
+# writer.interpolate_to(0, 100)
+# writer.interpolate_to(0, 0)
 
-writer.move_to(20, 20)
-writer.interpolate_to(80, 20)
-writer.interpolate_to(80, 80)
-writer.interpolate_to(20, 80)
-writer.interpolate_to(20, 20)
+# writer.move_to(20, 20)
+# writer.interpolate_to(80, 20)
+# writer.interpolate_to(80, 80)
+# writer.interpolate_to(20, 80)
+# writer.interpolate_to(20, 20)
+
+conversion_table = [
+    {
+        "layer": ["Edge.Cuts", "Edgecuts", "Outline"],
+        "suffix": "Edge_Cuts.gm1",
+        "mode": "contours",
+    },
+    {
+        "layer": ["F.Cu", "Front Copper", "Top Copper", "Copper"],
+        "suffix": "F_Cu.gtl",
+        "mode": "polygons",
+    },
+    {
+        "layer": ["B.Cu", "Back Copper", "Bottom Copper"],
+        "suffix": "B_Cu.gbl",
+        "mode": "polygons",
+    },
+    {
+        "layer": ["F.SilkS", "Front Silkscreen", "Top Silkscreen", "Silkscreen"],
+        "suffix": "F_SilkS.gto",
+        "mode": "polygons",
+    },
+    {
+        "layer": ["B.SilkS", "Back Silkscreen", "Bottom Silkscreen"],
+        "suffix": "B_SilkS.gbo",
+        "mode": "polygons",
+    },
+    {
+        "layer": ["F.Mask", "Front Soldermask", "Top Soldermask", "Soldermask"],
+        "suffix": "F_Mask.gts",
+        "mode": "polygons",
+    },
+    {
+        "layer": ["B.Mask", "Back Soldermask", "Bottom Soldermask"],
+        "suffix": "B_Mask.gbs",
+        "mode": "polygons",
+    },
+]
 
 # writer.write()
 
 
 class Converter:
-    def __init__(self, filename):
+    def __init__(self, filename, precision=0.1):
         self.svg = svg.Svg(filename)
         self.gerber = None
-        self.svg_precision = 0.05
+        self.svg_precision = precision
 
-        self.convert_edgecuts("Edgecuts", "frontpanel-Edge_Cuts.gm1")
-        self.convert_silkscreen("Silkscreen", "frontpanel-F_SilkS.gto")
+        print("Converting '%s' ..." % (filename))
 
-    def convert_edgecuts(self, id, filename):
+        for item in conversion_table:
+            group = self.find_group_by_id(item["layer"])
+            if group:
+                layer_filename = os.path.splitext(filename)[0] + "-" + item["suffix"]
+                print(
+                    "Converting SVG group '%s' to '%s' layer in '%s' ..."
+                    % (group.id, item["layer"][0], layer_filename)
+                )
+
+                convert = {
+                    "contours": self.convert_contours,
+                    "polygons": self.convert_polygons,
+                }
+
+                convert[item["mode"]](group, layer_filename)
+
+        # self.convert_edgecuts("Edgecuts", "frontpanel-Edge_Cuts.gm1")
+        # self.convert_silkscreen("Silkscreen", "frontpanel-F_SilkS.gto")
+
+    def convert_contours(self, group, filename):
         self.start_gerber(filename)
         self.gerber.add_circle_aperture(10, 0.01)
         self.gerber.select_aperture(10)
 
-        g = self.find_group(id)
-        items = g.flatten()
+        items = group.flatten()
         for item in self.remove_duplicate_elements(items):
             segments = item.segments(precision=self.svg_precision)
             for segment in segments:
@@ -54,27 +111,16 @@ class Converter:
         # if (points[-1] != points[0]):
         #     self.gerber.interpolate_to(points[0].x, -points[0].y)
 
-    def convert_silkscreen(self, id, filename):
+    def convert_polygons(self, group, filename):
         self.start_gerber(filename)
-        # self.gerber.add_circle_aperture(10, 0.01)
-        # self.gerber.select_aperture(10)
 
-        g = self.find_group(id)
-        items = g.flatten()
+        items = group.flatten()
         for item in self.remove_duplicate_elements(items):
             segments = item.segments(precision=self.svg_precision)
             self.write_polygon(segments)
-        #     self.gerber.begin_region()
-        #     segments = item.segments(precision=self.svg_precision)
-        #     for segment in segments:
-        #         print(self.is_clockwise(segment))
-        #         self.gerber.set_polarity(len(segments) == 1 or not self.is_clockwise(segment))
-        #         self.write_polygon(segment)
-        #     self.gerber.end_region()
 
     def write_polygon(self, segments):
-        print("write polygon")
-        self.gerber.begin_region()
+        # print("write polygon")
 
         # print(segments)
         points = [[(float(p.x), float(p.y)) for p in segment] for segment in segments]
@@ -83,6 +129,11 @@ class Converter:
         indices = earcut.earcut(data["vertices"], data["holes"], data["dimensions"])
         vertices = data["vertices"]
         # print(indices)
+
+        if len(indices) < 3:
+            return
+
+        self.gerber.begin_region()
 
         for i in range(len(indices) // 3):
             i0 = indices[i * 3 + 0]
@@ -104,13 +155,16 @@ class Converter:
         self.gerber = GerberWriter(filename)
         self.gerber.write_header()
 
-    def find_group(self, id):
+    def find_group_by_id(self, ids):
+        if isinstance(ids, str):
+            ids = [ids]
+
         def find(items, id):
             for item in items:
                 if isinstance(item, svg.Group):
-                    if item.id == id:
+                    if item.id in ids:
                         return item
-                    result = find(item.items, id)
+                    result = find(item.items, ids)
                     if result:
                         return result
             return None
@@ -132,7 +186,7 @@ class Converter:
         result = []
         for item in items:
             if any(self.elements_equal(item.elt, i.elt) for i in result):
-                print("skipping duplicate element")
+                # print("skipping duplicate element")
                 continue
             result.append(item)
         return result
@@ -142,7 +196,7 @@ class Converter:
         last = None
         for p in points:
             if p == last:
-                print("skipping duplicate point")
+                # print("skipping duplicate point")
                 continue
             result.append(p)
             last = p
@@ -159,8 +213,25 @@ class Converter:
         return sum > 0
 
 
-converter = Converter("test.svg")
+# converter = Converter("test.svg")
+
+
+def convert(filename, precision):
+    print("converting %s with precision %f" % (filename, precision))
+
+    converter = Converter(filename, precision)
+    pass
 
 
 def main():
-    print("hello")
+    parser = argparse.ArgumentParser()
+    # parser.add_argument("echo")
+    parser.add_argument("file", type=argparse.FileType("r"), nargs="+")
+    parser.add_argument(
+        "-p", "--precision", type=float, default=0.1, help="tesselation precision"
+    )
+
+    args = parser.parse_args()
+
+    for f in args.file:
+        convert(filename=f.name, precision=args.precision)
